@@ -58,16 +58,9 @@ rt{font-size:.52em;letter-spacing:0;font-family:var(--jp);font-weight:500}
 .lk-l{font-family:var(--jp);font-size:17px;line-height:2.2;min-width:0}
 .lk-line{display:flex;gap:8px;align-items:center;min-width:0}
 .lk-arrow{color:var(--muted)}
-.lk-slot{font:inherit;font-family:var(--jp);font-size:17px;min-width:9em;max-width:100%;text-align:left;padding:6px 12px;border:1.5px dashed var(--line);border-radius:8px;background:transparent;color:var(--ink);cursor:pointer;min-height:44px}
-.lk-slot .ph{font-family:var(--ui);font-size:13px;color:var(--muted)}
-.lk-row.active .lk-slot{border-color:var(--accent);background:var(--accent-soft)}
-.lk-slot.filled{border-style:solid;border-color:var(--line);background:var(--card)}
-.lk-row.ok .lk-slot{border:1.5px solid var(--good);background:var(--good-soft)}
-.lk-row.no .lk-slot{border:1.5px solid var(--bad);background:var(--bad-soft)}
-.pool{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
-.pool-l{width:100%;font-size:12px;color:var(--muted)}
-.chip{font:inherit;font-family:var(--jp);font-size:17px;padding:6px 12px;min-height:44px;border:1px solid var(--accent);color:var(--accent);background:var(--card);border-radius:8px;cursor:pointer}
-.chip.used{opacity:.45}
+.lk-sel{font:inherit;font-family:var(--jp);font-size:17px;flex:1;min-width:0;max-width:100%;min-height:44px;padding:6px 10px;border:1.5px solid var(--accent);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer}
+.lk-row.ok .lk-sel{border-color:var(--good);background:var(--good-soft)}
+.lk-row.no .lk-sel{border-color:var(--bad);background:var(--bad-soft)}
 /* 意味 */
 .words{font-family:var(--jp);font-size:17px;line-height:2.2;background:var(--accent-soft);border-radius:8px;padding:6px 12px;margin-bottom:10px}
 .im-item{padding:8px 0;border-top:1px solid var(--line)}
@@ -349,42 +342,33 @@ function showTab(id){
   try { window.scrollTo(0, 0); } catch (e) {}
 }
 
-/* ---------- 連語 ---------- */
-var lks = LK.map(function(g){ return { assign: g.rows.map(function(){ return null; }), active: 0, checked: false, show: false, res: "" }; });
+/* ---------- 連語 (chọn bằng ô thả xuống ngay tại hàng) ---------- */
+var lks = LK.map(function(g){ return { assign: g.rows.map(function(){ return -1; }), checked: false, show: false, res: "", resCls: "" }; });
+function plain(s){ return s.replace(/([一-鿿々〆]+)\{([^}]+)\}/g, "$1($2)"); }
 
 function lkRender(gi){
-  var g = LK[gi], s = lks[gi], h = "";
-  h += '<div class="gno">' + g.no + "</div>";
+  var g = LK[gi], s = lks[gi], h = '<div class="gno">' + g.no + "</div>";
   g.rows.forEach(function(r, ri){
     var ai = s.assign[ri], cls = "lk-row";
-    if (s.active === ri && !s.checked) cls += " active";
     if (s.checked) cls += (ai === r.a) ? " ok" : " no";
-    h += '<div class="' + cls + '" data-row="' + ri + '">';
-    h += '<div class="lk-l" data-act="' + ri + '">' + rb(r.l) + "</div>";
+    h += '<div class="' + cls + '"><div class="lk-l">' + rb(r.l) + "</div>";
     h += '<div class="lk-line"><span class="lk-arrow">→</span>';
-    h += '<button type="button" class="lk-slot' + (ai !== null ? " filled" : "") + '" data-slot="' + ri + '">' +
-         (ai === null ? '<span class="ph">chạm để chọn</span>' : rb(g.right[ai])) + "</button></div>";
+    h += '<select class="lk-sel" id="lk-' + gi + "-" + ri + '" data-sel="' + ri + '" aria-label="Chọn cụm động từ cho hàng ' + (ri + 1) + '">';
+    h += '<option value="-1"' + (ai === -1 ? " selected" : "") + ">Chọn ▾</option>";
+    g.right.forEach(function(t, i){
+      h += '<option value="' + i + '"' + (ai === i ? " selected" : "") + ">" + esc(plain(t)) + "</option>";
+    });
+    h += "</select></div>";
     if (s.show) {
       h += '<details class="exp" open><summary>Giải thích</summary><div class="b"><p><b>' + rb(g.right[r.a]) + "</b></p><p>" + esc(r.n) + "</p></div></details>";
     }
     h += "</div>";
   });
-  h += '<div class="pool"><div class="pool-l">Chọn một ô bên trên rồi chạm vào cụm từ để nối:</div>';
-  var used = {}; s.assign.forEach(function(a){ if (a !== null) used[a] = true; });
-  g.right.forEach(function(t, i){
-    h += '<button type="button" class="chip' + (used[i] ? " used" : "") + '" data-chip="' + i + '">' + rb(t) + "</button>";
-  });
-  h += "</div>";
   h += '<div class="btns"><button type="button" class="btn" data-lk="check">Kiểm tra</button>' +
        '<button type="button" class="btn ghost" data-lk="show">Xem đáp án</button>' +
        '<button type="button" class="btn ghost" data-lk="reset">Làm lại</button></div>';
-  h += '<div class="res ' + (s.resCls || "") + '">' + esc(s.res) + "</div>";
+  h += '<div class="res ' + s.resCls + '">' + esc(s.res) + "</div>";
   document.getElementById("lkg" + gi).innerHTML = h;
-}
-function lkNextEmpty(s, from){
-  var n = s.assign.length;
-  for (var k = 1; k <= n; k++) { var i = (from + k) % n; if (s.assign[i] === null) return i; }
-  return from;
 }
 function lkInit(){
   var p = document.getElementById("panel-lk");
@@ -392,40 +376,33 @@ function lkInit(){
   h += '<h3 class="sec-h" style="font-size:18px">1 連語<small>Cụm từ đi cùng nhau</small></h3>';
   h += '<p class="inst">一緒に使う言葉を覚えよう。</p>';
   h += '<p class="inst">例のように一緒に使う言葉を線で結びなさい。</p>';
-  h += '<p class="inst-vi">Nối các từ đi cùng nhau. Ở mỗi nhóm, chọn một hàng bên trái rồi chạm vào cụm động từ bên dưới để ghép.</p>';
+  h += '<p class="inst-vi">Nối các từ đi cùng nhau. Ở mỗi hàng, chạm ô "Chọn ▾" rồi chọn cụm động từ phù hợp.</p>';
   LK.forEach(function(g, gi){ h += '<div class="group" id="lkg' + gi + '" data-g="' + gi + '"></div>'; });
   p.innerHTML = h;
   LK.forEach(function(g, gi){ lkRender(gi); });
+  p.addEventListener("change", function(e){
+    var t = e.target.closest("[data-sel]"); if (!t) return;
+    var gi = +t.closest(".group").getAttribute("data-g"), s = lks[gi];
+    s.assign[+t.getAttribute("data-sel")] = +t.value;
+    s.checked = false; s.res = ""; s.resCls = "";
+    var keep = t.id;
+    lkRender(gi);
+    var again = document.getElementById(keep); if (again) { try { again.focus(); } catch (x) {} }
+  });
   p.addEventListener("click", function(e){
-    var grp = e.target.closest(".group"); if (!grp) return;
-    var gi = +grp.getAttribute("data-g"), s = lks[gi], g = LK[gi];
-    var t;
-    if ((t = e.target.closest("[data-act]"))) { s.active = +t.getAttribute("data-act"); lkRender(gi); return; }
-    if ((t = e.target.closest("[data-slot]"))) {
-      var ri = +t.getAttribute("data-slot");
-      if (s.assign[ri] !== null && s.active === ri) { s.assign[ri] = null; s.checked = false; s.res = ""; }
-      s.active = ri; lkRender(gi); return;
+    var t = e.target.closest("[data-lk]"); if (!t) return;
+    var gi = +t.closest(".group").getAttribute("data-g"), s = lks[gi], g = LK[gi], act = t.getAttribute("data-lk");
+    if (act === "check") {
+      var ok = 0; g.rows.forEach(function(r, i){ if (s.assign[i] === r.a) ok++; });
+      s.checked = true; s.show = true; s.res = ok + " / " + g.rows.length + " hàng đúng";
+      s.resCls = ok === g.rows.length ? "good" : "bad";
+    } else if (act === "show") {
+      s.assign = g.rows.map(function(r){ return r.a; }); s.checked = true; s.show = true;
+      s.res = "Đây là đáp án đúng"; s.resCls = "good";
+    } else {
+      s.assign = g.rows.map(function(){ return -1; }); s.checked = false; s.show = false; s.res = ""; s.resCls = "";
     }
-    if ((t = e.target.closest("[data-chip]"))) {
-      var ci = +t.getAttribute("data-chip");
-      s.assign = s.assign.map(function(a){ return a === ci ? null : a; });
-      s.assign[s.active] = ci; s.checked = false; s.res = ""; s.resCls = "";
-      s.active = lkNextEmpty(s, s.active); lkRender(gi); return;
-    }
-    if ((t = e.target.closest("[data-lk]"))) {
-      var act = t.getAttribute("data-lk");
-      if (act === "check") {
-        var ok = 0; g.rows.forEach(function(r, i){ if (s.assign[i] === r.a) ok++; });
-        s.checked = true; s.show = true; s.res = ok + " / " + g.rows.length + " hàng đúng";
-        s.resCls = ok === g.rows.length ? "good" : "bad";
-      } else if (act === "show") {
-        s.assign = g.rows.map(function(r){ return r.a; }); s.checked = true; s.show = true;
-        s.res = "Đây là đáp án đúng"; s.resCls = "good";
-      } else {
-        s.assign = g.rows.map(function(){ return null; }); s.active = 0; s.checked = false; s.show = false; s.res = ""; s.resCls = "";
-      }
-      lkRender(gi);
-    }
+    lkRender(gi);
   });
 }
 
